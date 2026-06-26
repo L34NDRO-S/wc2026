@@ -601,7 +601,7 @@ const TRANSLATIONS = {
     eloSource:    'Elo: eloratings.net · Dados: openfootball/worldcup.json',
     loading:      'Carregando chaveamento...',
     groupHead:    ['Time', 'J', 'Pts', 'GD', 'GF'],
-    simDone:      lk => `${lk} resultado${lk > 1 ? 's' : ''} fixado${lk > 1 ? 's' : ''}`,
+    simDone:      (n, lk) => `${n.toLocaleString('pt-BR')} simulações` + (lk > 0 ? ` · ${lk} resultado${lk > 1 ? 's' : ''} fixado${lk > 1 ? 's' : ''}` : ''),
     errLoad:      msg => `Erro ao carregar dados: ${msg}`,
     errHint:      'Verifique a conexão. Dados carregados de raw.githubusercontent.com',
     themeLight:   '☀️', themeDark: '🌙',
@@ -621,7 +621,7 @@ const TRANSLATIONS = {
     eloSource:    'Elo: eloratings.net · Data: openfootball/worldcup.json',
     loading:      'Loading bracket...',
     groupHead:    ['Team', 'MP', 'Pts', 'GD', 'GF'],
-    simDone:      lk => `${lk} result${lk > 1 ? 's' : ''} fixed`,
+    simDone:      (n, lk) => `${n.toLocaleString()} simulations` + (lk > 0 ? ` · ${lk} fixed` : ''),
     errLoad:      msg => `Error loading data: ${msg}`,
     errHint:      'Check your internet connection. Data is loaded from raw.githubusercontent.com',
     themeLight:   '☀️', themeDark: '🌙',
@@ -641,7 +641,7 @@ const TRANSLATIONS = {
     eloSource:    'Elo: eloratings.net · Datos: openfootball/worldcup.json',
     loading:      'Cargando cuadro...',
     groupHead:    ['Equipo', 'PJ', 'Pts', 'DG', 'GF'],
-    simDone:      lk => `${lk} resultado${lk > 1 ? 's' : ''} fijado${lk > 1 ? 's' : ''}`,
+    simDone:      (n, lk) => `${n.toLocaleString()} simulaciones` + (lk > 0 ? ` · ${lk} fijado${lk > 1 ? 's' : ''}` : ''),
     errLoad:      msg => `Error al cargar datos: ${msg}`,
     errHint:      'Comprueba tu conexión. Los datos se cargan desde raw.githubusercontent.com',
     themeLight:   '☀️', themeDark: '🌙',
@@ -751,7 +751,9 @@ const BRACKET_3RD       = [103];
 let matchById = {};       // matchId → parsed match object
 let groupStandings = {};  // 'Group A' → [{name, P, GD, GF, GA, MP}]
 let lockedWinners = {};   // matchId → teamName (user-forced result)
-let champProbs = {};      // teamName → probability of winning tournament (pure Elo)
+let champProbs = {};      // teamName → probability of winning tournament
+let matchWinProbs = {};   // matchId → {teamName → prob of winning that match}
+let simN = 0;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ELO HELPERS
@@ -881,7 +883,61 @@ function resolveStaticRef(ref) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CHAMPIONSHIP PROBABILITY — analytical, pure Elo, ignores locks
+// SIMULATION — Monte Carlo
+// ═══════════════════════════════════════════════════════════════════════════
+function resolveDynamicRef(ref, results) {
+  if (!ref) return null;
+  if (ref.startsWith('W')) return results[parseInt(ref.slice(1))]?.winner ?? null;
+  if (ref.startsWith('L')) return results[parseInt(ref.slice(1))]?.loser  ?? null;
+  return ref;
+}
+
+function simulateOnce() {
+  const results = {};
+  for (const id of Object.keys(matchById).map(Number).sort((a, b) => a - b)) {
+    const m = matchById[id];
+    const t1 = m.team1 ?? resolveDynamicRef(m.rawT1, results);
+    const t2 = m.team2 ?? resolveDynamicRef(m.rawT2, results);
+    if (!t1 || !t2) { results[id] = { winner: t1 ?? t2, loser: null }; continue; }
+    let winner, loser;
+    if (m.score) {
+      winner = m.score[0] >= m.score[1] ? t1 : t2;
+    } else if (lockedWinners[id] === t1 || lockedWinners[id] === t2) {
+      winner = lockedWinners[id];
+    } else {
+      winner = Math.random() < winProb(t1, t2) ? t1 : t2;
+    }
+    loser = winner === t1 ? t2 : t1;
+    results[id] = { winner, loser };
+  }
+  return results;
+}
+
+function runSimulations(N) {
+  const champCounts = {};
+  const matchCounts = {};
+  for (let i = 0; i < N; i++) {
+    const res = simulateOnce();
+    const champ = res[104]?.winner;
+    if (champ) champCounts[champ] = (champCounts[champ] ?? 0) + 1;
+    for (const [id, r] of Object.entries(res)) {
+      if (!matchCounts[id]) matchCounts[id] = {};
+      if (r.winner) matchCounts[id][r.winner] = (matchCounts[id][r.winner] ?? 0) + 1;
+    }
+  }
+  champProbs = {};
+  for (const [team, cnt] of Object.entries(champCounts)) champProbs[team] = cnt / N;
+  matchWinProbs = {};
+  for (const [id, counts] of Object.entries(matchCounts)) {
+    const total = Object.values(counts).reduce((s, c) => s + c, 0);
+    matchWinProbs[id] = {};
+    for (const [team, cnt] of Object.entries(counts)) matchWinProbs[id][team] = cnt / total;
+  }
+  simN = N;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHAMPIONSHIP PROBABILITY — analytical fallback (kept for reference)
 // ═══════════════════════════════════════════════════════════════════════════
 let _wdCache = {};
 
@@ -1327,7 +1383,7 @@ function onTeamClick(matchId, team) {
 function updateStatus() {
   const locked = Object.keys(lockedWinners).length;
   const s = document.getElementById('sim-status');
-  s.textContent = locked > 0 ? t('simDone')(locked) : '';
+  s.textContent = simN > 0 ? t('simDone')(simN, locked) : '';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1376,7 +1432,7 @@ applyTranslations();
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
 
-    champProbs = computeChampionshipProbs();
+    runSimulations(30000);
     renderBracket();
     renderOdds();
     renderGroups();
