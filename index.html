@@ -860,6 +860,9 @@ function parseData(data) {
 
   groupStandings = computeGroupStandings(groupMatches);
 
+  // Precompute 3rd-place assignments before resolving any refs
+  const thirdMap = computeThirdPlaceAssignments(koMatches);
+
   matchById = {};
   for (const [numStr, m] of Object.entries(koMatches)) {
     const id = Number(numStr);
@@ -871,8 +874,8 @@ function parseData(data) {
       rawT2: m.team2 ?? null,
       score: m.score?.ft ?? null,
       // resolved teams (null if dynamic W/L ref)
-      team1: resolveStaticRef(m.team1),
-      team2: resolveStaticRef(m.team2),
+      team1: resolveStaticRef(m.team1, id, 1, thirdMap),
+      team2: resolveStaticRef(m.team2, id, 2, thirdMap),
     };
   }
 }
@@ -911,8 +914,9 @@ function computeGroupStandings(groupMatches) {
   return standings;
 }
 
-// Resolve "1F", "2E", "3A/B/C/D/F" → actual team name (or null for W/L refs)
-function resolveStaticRef(ref) {
+// Resolve "1F", "2E" → actual team name (or null for W/L refs).
+// 3rd-place refs ("3A/B/C/D/F") require the precomputed thirdMap to avoid duplicates.
+function resolveStaticRef(ref, matchId, slot, thirdMap) {
   if (!ref) return null;
   if (ref.startsWith('W') || ref.startsWith('L')) return null; // dynamic
   const m = ref.match(/^(\d)([A-L](?:\/[A-L])*)$/);
@@ -926,12 +930,54 @@ function resolveStaticRef(ref) {
     return groupStandings[g]?.[pos]?.name ?? ref;
   }
 
-  // Best 3rd-place from the given groups
-  const candidates = groupLetters
-    .map(gl => groupStandings[`Group ${gl}`]?.[2])
-    .filter(Boolean)
-    .sort((a, b) => b.P - a.P || b.GD - a.GD || b.GF - a.GF);
-  return candidates[0]?.name ?? ref;
+  // 3rd-place slot: use precomputed deduplication map so no team appears twice
+  return thirdMap?.[`${matchId}_${slot}`] ?? null;
+}
+
+// Assigns each of the 8 best 3rd-place teams to exactly one R32 slot.
+// Uses a most-constrained-first greedy strategy to prevent duplicates.
+function computeThirdPlaceAssignments(koMatches) {
+  const slots = [];
+  for (const [numStr, m] of Object.entries(koMatches)) {
+    const id = Number(numStr);
+    for (const [slot, ref] of [[1, m.team1], [2, m.team2]]) {
+      if (!ref) continue;
+      const match = ref.match(/^3([A-L](?:\/[A-L])*)$/);
+      if (match) slots.push({ id, slot, groups: match[1].split('/') });
+    }
+  }
+
+  const thirds = [];
+  for (const [g, standing] of Object.entries(groupStandings)) {
+    if (standing.length >= 3) {
+      thirds.push({ group: g.replace('Group ', ''), ...standing[2] });
+    }
+  }
+  thirds.sort((a, b) => b.P - a.P || b.GD - a.GD || b.GF - a.GF);
+
+  const result = {};
+  const usedTeams = new Set();
+  let remaining = [...slots];
+
+  while (remaining.length > 0) {
+    let bestSlot = null, bestCandidates = null, minCount = Infinity;
+    for (const s of remaining) {
+      const candidates = thirds.filter(t => s.groups.includes(t.group) && !usedTeams.has(t.name));
+      if (candidates.length < minCount) {
+        minCount = candidates.length;
+        bestSlot = s;
+        bestCandidates = candidates;
+      }
+    }
+    if (!bestSlot) break;
+    if (bestCandidates && bestCandidates.length > 0) {
+      result[`${bestSlot.id}_${bestSlot.slot}`] = bestCandidates[0].name;
+      usedTeams.add(bestCandidates[0].name);
+    }
+    remaining = remaining.filter(s => s !== bestSlot);
+  }
+
+  return result;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
