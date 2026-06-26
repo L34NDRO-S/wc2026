@@ -1000,8 +1000,6 @@ function simulateOnce() {
     let winner, loser;
     if (m.score) {
       winner = m.score[0] >= m.score[1] ? t1 : t2;
-    } else if (lockedWinners[id] === t1 || lockedWinners[id] === t2) {
-      winner = lockedWinners[id];
     } else {
       winner = Math.random() < winProb(t1, t2) ? t1 : t2;
     }
