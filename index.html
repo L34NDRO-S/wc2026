@@ -66,6 +66,34 @@
 
     .header-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
+    .rating-toggle { display: flex; gap: 3px; }
+
+    .rating-btn {
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 700;
+      font-family: inherit;
+      transition: all 0.15s;
+      letter-spacing: 0.03em;
+    }
+    .rating-btn.active, .rating-btn:hover {
+      background: var(--green);
+      color: #fff;
+      border-color: var(--green);
+    }
+
+    .rating-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+      margin: 0 4px;
+    }
+
     .lang-btn {
       padding: 5px 11px;
       border-radius: 6px;
@@ -533,6 +561,11 @@
     <div class="subtitle" id="hdr-subtitle">Clique em um time e fixe ele como vencedor daquela partida</div>
   </div>
   <div class="header-controls">
+    <div class="rating-toggle">
+      <button class="rating-btn active" data-src="pele">PELE</button>
+      <button class="rating-btn" data-src="worldelo">WorldElo</button>
+    </div>
+    <div class="rating-divider"></div>
     <button class="lang-btn active" data-lang="pt">PT</button>
     <button class="lang-btn" data-lang="en">EN</button>
     <button class="lang-btn" data-lang="es">ES</button>
@@ -598,7 +631,7 @@ const TRANSLATIONS = {
     hint:         '▲▼ clique p/ fixar',
     tooltipFix:   'Clique para fixar como vencedor',
     tooltipUnfix: 'Clique para remover fixação',
-    eloSource:    'Elo: eloratings.net · Dados: openfootball/worldcup.json',
+    eloSource:    () => (activeElo === ELO_PELE ? 'Rating: PELE (Nate Silver) · ' : 'Rating: WorldElo (eloratings.net) · ') + 'Dados: openfootball/worldcup.json',
     loading:      'Carregando chaveamento...',
     groupHead:    ['Time', 'J', 'Pts', 'GD', 'GF'],
     simDone:      (n, lk) => `${n.toLocaleString('pt-BR')} simulações` + (lk > 0 ? ` · ${lk} resultado${lk > 1 ? 's' : ''} fixado${lk > 1 ? 's' : ''}` : ''),
@@ -618,7 +651,7 @@ const TRANSLATIONS = {
     hint:         '▲▼ click to set winner',
     tooltipFix:   'Click to set as winner',
     tooltipUnfix: 'Click to remove fixed result',
-    eloSource:    'Elo: eloratings.net · Data: openfootball/worldcup.json',
+    eloSource:    () => (activeElo === ELO_PELE ? 'Rating: PELE (Nate Silver) · ' : 'Rating: WorldElo (eloratings.net) · ') + 'Data: openfootball/worldcup.json',
     loading:      'Loading bracket...',
     groupHead:    ['Team', 'MP', 'Pts', 'GD', 'GF'],
     simDone:      (n, lk) => `${n.toLocaleString()} simulations` + (lk > 0 ? ` · ${lk} fixed` : ''),
@@ -638,7 +671,7 @@ const TRANSLATIONS = {
     hint:         '▲▼ clic para fijar',
     tooltipFix:   'Clic para establecer como ganador',
     tooltipUnfix: 'Clic para quitar resultado fijo',
-    eloSource:    'Elo: eloratings.net · Datos: openfootball/worldcup.json',
+    eloSource:    () => (activeElo === ELO_PELE ? 'Rating: PELE (Nate Silver) · ' : 'Rating: WorldElo (eloratings.net) · ') + 'Datos: openfootball/worldcup.json',
     loading:      'Cargando cuadro...',
     groupHead:    ['Equipo', 'PJ', 'Pts', 'DG', 'GF'],
     simDone:      (n, lk) => `${n.toLocaleString()} simulaciones` + (lk > 0 ? ` · ${lk} fijado${lk > 1 ? 's' : ''}` : ''),
@@ -657,7 +690,7 @@ function applyTranslations() {
   document.title = t('title').replace('⚽ ', '');
   document.getElementById('hdr-title').textContent   = t('title');
   document.getElementById('hdr-subtitle').textContent = t('subtitle');
-  document.getElementById('info-elo').textContent    = t('eloSource');
+  const eloSrc = t('eloSource'); document.getElementById('info-elo').textContent = typeof eloSrc === 'function' ? eloSrc() : eloSrc;
   const lt = document.getElementById('loading-text');
   if (lt) lt.textContent = t('loading');
   const os = document.querySelector('#odds-section h2');
@@ -683,7 +716,23 @@ function applyTranslations() {
 // ═══════════════════════════════════════════════════════════════════════════
 // ELO RATINGS  (fonte: eloratings.net, jun/2026 — atualizar conforme torneio)
 // ═══════════════════════════════════════════════════════════════════════════
-const ELO = {
+const ELO_PELE = {
+  'Argentina': 2085, 'Spain': 2071, 'France': 2037, 'England': 2024,
+  'Brazil': 2014, 'Portugal': 1974, 'Netherlands': 1966, 'Germany': 1963,
+  'Colombia': 1956, 'Norway': 1956, 'Ecuador': 1910, 'Switzerland': 1900,
+  'Uruguay': 1895, 'Morocco': 1888, 'Japan': 1888, 'Mexico': 1884,
+  'Belgium': 1884, 'Turkey': 1874, 'Croatia': 1868, 'Senegal': 1867,
+  'Paraguay': 1847, 'Austria': 1840, 'USA': 1826, 'Ivory Coast': 1814,
+  'Canada': 1805, 'Algeria': 1802, 'Sweden': 1801, 'Scotland': 1793,
+  'Australia': 1792, 'Egypt': 1787, 'South Korea': 1750, 'DR Congo': 1749,
+  'Czech Republic': 1746, 'Iran': 1738, 'Ghana': 1715, 'Panama': 1715,
+  'Bosnia & Herzegovina': 1710, 'South Africa': 1694, 'Uzbekistan': 1687,
+  'Cape Verde': 1662, 'Tunisia': 1652, 'Saudi Arabia': 1648, 'Jordan': 1641,
+  'Iraq': 1639, 'New Zealand': 1632, 'Haiti': 1610, 'Curaçao': 1568,
+  'Qatar': 1543,
+};
+
+const ELO_WORLDELO = {
   'Argentina': 2141, 'France': 2072, 'Spain': 2058, 'Brazil': 2049,
   'England': 2040, 'Portugal': 2022, 'Netherlands': 2001, 'Germany': 1994,
   'Belgium': 1968, 'Croatia': 1957, 'Morocco': 1941, 'Uruguay': 1934,
@@ -698,6 +747,8 @@ const ELO = {
   'Uzbekistan': 1809, 'Iraq': 1805, 'Qatar': 1793, 'New Zealand': 1788,
   'Haiti': 1779, 'Curaçao': 1763,
 };
+
+let activeElo = ELO_PELE;
 
 // ISO 3166-1 alpha-2 codes → SVG flag via hampusborgos/country-flags
 const CODES = {
@@ -758,7 +809,7 @@ let simN = 0;
 // ═══════════════════════════════════════════════════════════════════════════
 // ELO HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
-function getElo(team) { return ELO[team] ?? 1800; }
+function getElo(team) { return activeElo[team] ?? 1800; }
 
 // Returns an <img> element with the team's SVG flag
 function getFlagImg(team, size = 20) {
@@ -1389,6 +1440,17 @@ function updateStatus() {
 // ═══════════════════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════════════════
+document.querySelectorAll('.rating-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeElo = btn.dataset.src === 'pele' ? ELO_PELE : ELO_WORLDELO;
+    document.querySelectorAll('.rating-btn').forEach(b => b.classList.toggle('active', b === btn));
+    runSimulations(30000);
+    renderBracket();
+    renderOdds();
+    updateStatus();
+  });
+});
+
 document.querySelectorAll('.lang-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     currentLang = btn.dataset.lang;
