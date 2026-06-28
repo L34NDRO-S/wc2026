@@ -243,7 +243,7 @@
     #bracket {
       display: flex;
       min-width: 1160px;
-      height: 820px;
+      height: 920px;
       gap: 0;
       padding: 0 8px;
     }
@@ -286,6 +286,10 @@
     /* Slot: fixed proportion of column height; match box vertically centered inside */
     .match-slot {
       flex: 1;
+      /* min-height:0 forces every slot to an exactly equal share of the column,
+         independent of box content height — keeps later rounds centered on the
+         midpoint of their feeding pair (no cumulative drift in Rodada 32). */
+      min-height: 0;
       display: flex;
       align-items: center;
       padding: 3px 5px;
@@ -296,11 +300,15 @@
     }
 
     /* 3rd place match — centered under the bracket */
+    /* Shares #bracket's min-width and horizontal padding so it scrolls in sync and
+       its center coincides with the bracket center (where the Final sits). Locks the
+       3rd-place box under the Final instead of re-centering on the viewport when narrow. */
     #third-place-section {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 8px 24px 24px;
+      min-width: 1160px;
+      padding: 8px 8px 24px;
       gap: 8px;
     }
 
@@ -626,7 +634,7 @@ const TRANSLATIONS = {
     champTitle:   '🏆 Probabilidade de ser campeão',
     bracketTitle: 'Chaveamento mata-mata',
     groupsToggle: 'Classificação da fase de grupos',
-    r32: 'Rodada 32', r16: 'Oitavas', qf: 'Quartas', sf: 'Semifinal',
+    r32: '16 avos', r16: 'Oitavas', qf: 'Quartas', sf: 'Semifinal',
     finalLabel:   '🏆 FINAL',
     thirdPlace:   '🥉 3º Lugar',
     hint:         '▲▼ clique p/ fixar',
