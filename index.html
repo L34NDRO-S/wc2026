@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Copa do Mundo 2026 — Simulador</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -14,33 +17,38 @@
       --border: #293052;
       --text: #e2e8f0;
       --muted: #8896b0;
-      --accent: #3b82f6;
+      --accent: #5b7cfa;
       --green: #22c55e;
       --gold: #f59e0b;
+      --conn: #323a5e;
+      --font: 'Barlow', system-ui, -apple-system, sans-serif;
+      --font-display: 'Barlow Condensed', 'Barlow', system-ui, sans-serif;
     }
 
     html.light {
-      --bg: #f4f6fa;
+      --bg: #eef1f7;
       --surface: #ffffff;
-      --surface2: #eef1f7;
-      --border: #d1d9e6;
-      --text: #1e293b;
-      --muted: #64748b;
-      --accent: #2563eb;
-      --green: #16a34a;
+      --surface2: #e7ecf5;
+      --border: #c8d2e2;
+      --text: #16203a;
+      --muted: #5a6885;
+      --accent: #2f63e8;
+      --green: #15924a;
       --gold: #b45309;
+      --conn: #c2ccdd;
     }
 
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-family: var(--font);
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* ── Header ──────────────────────────────────────────── */
     header {
-      padding: 20px 24px 14px;
+      padding: 18px 24px 14px;
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
@@ -48,12 +56,24 @@
       flex-wrap: wrap;
       gap: 10px;
       background: var(--surface);
+      position: relative;
+    }
+    header::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; bottom: -1px;
+      height: 3px;
+      background: linear-gradient(90deg, #ff3d7f 0%, #b14bff 34%, #2f7bff 66%, #16c47f 100%);
     }
 
     header h1 {
-      font-size: 1.35rem;
+      font-family: var(--font-display);
+      font-size: 1.7rem;
       font-weight: 700;
-      color: var(--gold);
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+      color: var(--text);
+      line-height: 1.05;
     }
 
     .subtitle {
@@ -188,6 +208,16 @@
       font-size: 0.82rem;
     }
 
+    .odds-rank {
+      width: 22px;
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
     .odds-name {
       width: 148px;
       white-space: nowrap;
@@ -262,10 +292,11 @@
     }
 
     .round-title {
-      font-size: 0.68rem;
+      font-family: var(--font-display);
+      font-size: 0.74rem;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.09em;
       color: var(--muted);
       text-align: center;
       padding: 0 4px 8px;
@@ -331,11 +362,18 @@
       border-radius: 8px;
       overflow: hidden;
       margin: 3px 5px;
-      transition: border-color 0.15s;
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
       flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.22);
     }
 
-    .match-box:hover { border-color: #3b5bdb; }
+    .match-box:hover {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.32);
+    }
     .match-box.played { opacity: 0.75; }
 
     /* Top colour strip by round */
@@ -357,36 +395,39 @@
 
     /* Thin Elo probability bar */
     .match-prob-bar {
-      height: 3px;
+      height: 4px;
       display: flex;
-      margin: 1px 0;
+      margin: 2px 6px;
+      border-radius: 3px;
+      overflow: hidden;
+      background: var(--surface2);
     }
-    .mpb-1 { background: var(--accent); transition: width 0.3s; }
-    .mpb-2 { background: var(--border); flex: 1; }
+    .mpb-1 { background: linear-gradient(90deg, var(--accent), #8aa6ff); transition: width 0.4s ease; }
+    .mpb-2 { background: transparent; flex: 1; }
 
     /* Team row */
     .team-row {
       display: flex;
       align-items: center;
-      padding: 5px 7px;
-      gap: 5px;
+      padding: 6px 8px;
+      gap: 6px;
       cursor: pointer;
       transition: background 0.12s;
-      min-height: 30px;
+      min-height: 32px;
       user-select: none;
       position: relative;
     }
 
     .team-row:hover { background: rgba(91,116,251,0.13); }
 
-    .team-row.winner-row  { background: rgba(34,197,94,0.10); }
-    .team-row.locked-row  { background: rgba(245,158,11,0.13); }
+    .team-row.winner-row  { background: rgba(34,197,94,0.10); box-shadow: inset 3px 0 0 var(--green); }
+    .team-row.locked-row  { background: rgba(245,158,11,0.13); box-shadow: inset 3px 0 0 var(--gold); }
     .team-row.loser-row   { opacity: 0.45; }
-    .team-row.locked-row.winner-row { background: rgba(245,158,11,0.18); }
+    .team-row.locked-row.winner-row { background: rgba(245,158,11,0.18); box-shadow: inset 3px 0 0 var(--gold); }
 
     .t-name {
       flex: 1;
-      font-size: 0.74rem;
+      font-size: 0.78rem;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -414,11 +455,12 @@
     .match-divider { height: 1px; background: var(--border); }
 
     .final-label {
-      font-size: 0.72rem;
+      font-family: var(--font-display);
+      font-size: 0.82rem;
       font-weight: 700;
       text-align: center;
       color: var(--gold);
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
       padding: 5px 8px 2px;
     }
 
@@ -1325,6 +1367,68 @@ function buildColumn(matchIds, label, extraClass = '') {
   return col;
 }
 
+// Draws elbow connector lines between each knockout match and the matches that
+// feed it (via W-refs), as an SVG overlay sitting behind the opaque match boxes.
+function drawConnectors() {
+  const bracket = document.getElementById('bracket');
+  if (!bracket) return;
+  const old = bracket.querySelector('svg.bracket-connectors');
+  if (old) old.remove();
+  bracket.style.position = 'relative';
+
+  const W = bracket.scrollWidth, H = bracket.scrollHeight;
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', 'bracket-connectors');
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.style.position = 'absolute';
+  svg.style.left = '0';
+  svg.style.top = '0';
+  svg.style.pointerEvents = 'none';
+  svg.style.zIndex = '0';
+
+  const brect = bracket.getBoundingClientRect();
+  const byId = {};
+  bracket.querySelectorAll('.match-box').forEach(b => { byId[b.dataset.id] = b; });
+  const rel = el => {
+    const r = el.getBoundingClientRect();
+    return { l: r.left - brect.left, t: r.top - brect.top, w: r.width, h: r.height,
+             cx: r.left - brect.left + r.width / 2, cy: r.top - brect.top + r.height / 2 };
+  };
+  const stroke = getComputedStyle(document.documentElement).getPropertyValue('--conn').trim() || '#323a5e';
+
+  Object.values(matchById).forEach(m => {
+    const childBox = byId[m.id];
+    if (!childBox) return;
+    [m.rawT1, m.rawT2].forEach(ref => {
+      if (!ref || !ref.startsWith('W')) return;
+      const feederBox = byId[parseInt(ref.slice(1))];
+      if (!feederBox) return;
+      const c = rel(childBox), f = rel(feederBox);
+      let x1, x2;
+      if (f.cx < c.cx) { x1 = f.l + f.w; x2 = c.l; }
+      else             { x1 = f.l;       x2 = c.l + c.w; }
+      const midX = (x1 + x2) / 2;
+      const path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', `M ${x1} ${f.cy} H ${midX} V ${c.cy} H ${x2}`);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', stroke);
+      path.setAttribute('stroke-width', '1.5');
+      path.setAttribute('stroke-linejoin', 'round');
+      svg.appendChild(path);
+    });
+  });
+
+  bracket.insertBefore(svg, bracket.firstChild);
+}
+
+let _connTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_connTimer);
+  _connTimer = setTimeout(drawConnectors, 150);
+});
+
 function renderBracket() {
   const bracket = document.getElementById('bracket');
   bracket.innerHTML = '';
@@ -1369,6 +1473,8 @@ function renderBracket() {
   tpm.innerHTML = '';
   const tpbox = buildMatchBox(103);
   if (tpbox) tpm.appendChild(tpbox);
+
+  requestAnimationFrame(drawConnectors);
 }
 
 function renderOdds() {
@@ -1394,6 +1500,10 @@ function renderOdds() {
     flagEl.className = 'odds-flag';
     flagEl.appendChild(getFlagImg(team, 22));
 
+    const rankEl = document.createElement('span');
+    rankEl.className = 'odds-rank';
+    rankEl.textContent = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+
     const nameEl = document.createElement('span');
     nameEl.className = 'odds-name';
     nameEl.textContent = team;
@@ -1402,14 +1512,17 @@ function renderOdds() {
     track.className = 'odds-bar-track';
     const fill = document.createElement('div');
     fill.className = 'odds-bar-fill' + (i === 0 ? ' top1' : i < 3 ? ' top3' : '');
-    fill.style.width = ((prob / maxP) * 100).toFixed(1) + '%';
+    const fillW = ((prob / maxP) * 100).toFixed(1) + '%';
+    fill.style.width = '0%';
     track.appendChild(fill);
+    void fill.offsetWidth; // force reflow so the CSS transition animates from 0
+    fill.style.width = fillW;
 
     const pctEl = document.createElement('span');
     pctEl.className = 'odds-pct';
     pctEl.textContent = fmtPct(prob);
 
-    row.append(flagEl, nameEl, track, pctEl);
+    row.append(rankEl, flagEl, nameEl, track, pctEl);
     chart.appendChild(row);
   });
 }
