@@ -625,7 +625,7 @@
 
 <div class="info-bar">
   <span id="sim-status"></span>
-  <span id="info-elo">Elo: eloratings.net · Dados: openfootball/worldcup.json</span>
+  <span id="info-elo">Elo: eloratings.net · Dados: upbound-web/worldcup-live.json</span>
 </div>
 
 <div id="loading">
@@ -657,7 +657,7 @@
 </div>
 
 <footer>
-  Dados: <a href="https://github.com/openfootball/worldcup.json" target="_blank">openfootball/worldcup.json</a> ·
+  Dados: <a href="https://github.com/upbound-web/worldcup-live.json" target="_blank">upbound-web/worldcup-live.json</a> ·
   PELE: <a href="https://www.natesilver.net/p/pele-international-football-rankings-soccer-ratings-projections" target="_blank">Nate Silver</a> ·
   WorldElo: <a href="https://eloratings.net" target="_blank">eloratings.net</a> ·
   <a href="https://github.com/L34NDRO-S/wc2026" target="_blank">GitHub</a>
@@ -679,10 +679,11 @@ const TRANSLATIONS = {
     r32: '16 avos', r16: 'Oitavas', qf: 'Quartas', sf: 'Semifinal',
     finalLabel:   '🏆 FINAL',
     thirdPlace:   '🥉 3º Lugar',
+    pens:         'pên.',
     hint:         '▲▼ clique p/ fixar',
     tooltipFix:   'Clique para fixar como vencedor',
     tooltipUnfix: 'Clique para remover fixação',
-    eloSource:    () => (activeElo === ELO_PELE ? 'Rating: PELE (Nate Silver) · ' : 'Rating: WorldElo (eloratings.net) · ') + 'Dados: openfootball/worldcup.json',
+    eloSource:    () => (activeElo === ELO_PELE ? 'Rating: PELE (Nate Silver) · ' : 'Rating: WorldElo (eloratings.net) · ') + 'Dados: upbound-web/worldcup-live.json',
     loading:      'Carregando chaveamento...',
     groupHead:    ['Time', 'J', 'Pts', 'GD', 'GF'],
     simDone:      (n, lk) => `${n.toLocaleString('pt-BR')} simulações` + (lk > 0 ? ` · ${lk} resultado${lk > 1 ? 's' : ''} fixado${lk > 1 ? 's' : ''}` : ''),
@@ -699,10 +700,11 @@ const TRANSLATIONS = {
     r32: 'Round of 32', r16: 'Round of 16', qf: 'Quarter-finals', sf: 'Semi-final',
     finalLabel:   '🏆 FINAL',
     thirdPlace:   '🥉 3rd Place',
+    pens:         'pens',
     hint:         '▲▼ click to set winner',
     tooltipFix:   'Click to set as winner',
     tooltipUnfix: 'Click to remove fixed result',
-    eloSource:    () => (activeElo === ELO_PELE ? 'Rating: PELE (Nate Silver) · ' : 'Rating: WorldElo (eloratings.net) · ') + 'Data: openfootball/worldcup.json',
+    eloSource:    () => (activeElo === ELO_PELE ? 'Rating: PELE (Nate Silver) · ' : 'Rating: WorldElo (eloratings.net) · ') + 'Data: upbound-web/worldcup-live.json',
     loading:      'Loading bracket...',
     groupHead:    ['Team', 'MP', 'Pts', 'GD', 'GF'],
     simDone:      (n, lk) => `${n.toLocaleString()} simulations` + (lk > 0 ? ` · ${lk} fixed` : ''),
@@ -719,10 +721,11 @@ const TRANSLATIONS = {
     r32: 'Ronda de 32', r16: 'Octavos', qf: 'Cuartos de final', sf: 'Semifinal',
     finalLabel:   '🏆 FINAL',
     thirdPlace:   '🥉 3er Lugar',
+    pens:         'pen.',
     hint:         '▲▼ clic para fijar',
     tooltipFix:   'Clic para establecer como ganador',
     tooltipUnfix: 'Clic para quitar resultado fijo',
-    eloSource:    () => (activeElo === ELO_PELE ? 'Rating: PELE (Nate Silver) · ' : 'Rating: WorldElo (eloratings.net) · ') + 'Datos: openfootball/worldcup.json',
+    eloSource:    () => (activeElo === ELO_PELE ? 'Rating: PELE (Nate Silver) · ' : 'Rating: WorldElo (eloratings.net) · ') + 'Datos: upbound-web/worldcup-live.json',
     loading:      'Cargando cuadro...',
     groupHead:    ['Equipo', 'PJ', 'Pts', 'DG', 'GF'],
     simDone:      (n, lk) => `${n.toLocaleString()} simulaciones` + (lk > 0 ? ` · ${lk} fijado${lk > 1 ? 's' : ''}` : ''),
@@ -887,13 +890,34 @@ function winProb(teamA, teamB) {
 // ═══════════════════════════════════════════════════════════════════════════
 // DATA LOADING & PARSING
 // ═══════════════════════════════════════════════════════════════════════════
-const WC_URL = 'https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json';
+// Fonte ativa: upbound-web/worldcup-live.json — atualiza resultados mais rápido.
+const WC_URL = 'https://raw.githubusercontent.com/upbound-web/worldcup-live.json/master/2026/worldcup.json';
+// Fonte antiga (openfootball) — descomentar para voltar a usá-la:
+// const WC_URL = 'https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json';
 
 async function loadData() {
   const resp = await fetch(WC_URL);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const data = await resp.json();
   parseData(data);
+}
+
+// Winning slot of a played knockout match: 0 = team1, 1 = team2.
+// Decided by penalty shootout first, then extra time, then full time.
+// Returns null when the match has not been played.
+function koWinnerSlot(score) {
+  const dec = score?.p ?? score?.et ?? score?.ft;
+  if (!dec) return null;
+  return dec[0] >= dec[1] ? 0 : 1;
+}
+
+// Knockout match number, falling back to round name when `num` is absent.
+function koMatchNum(m) {
+  if (m.num != null) return m.num;
+  const r = (m.round || '').toLowerCase();
+  if (r.includes('third') || r.includes('3rd')) return 103;
+  if (r === 'final') return 104;
+  return null;
 }
 
 function parseData(data) {
@@ -903,9 +927,12 @@ function parseData(data) {
   for (const m of data.matches) {
     if (m.group) {
       groupMatches.push(m);
-    } else if (m.num != null) {
-      koMatches[m.num] = m;
+      continue;
     }
+    // Some sources omit `num` on the Final / 3rd-place match — infer it from the
+    // round name so these matches aren't dropped (Final → 104, 3rd place → 103).
+    const num = koMatchNum(m);
+    if (num != null) koMatches[num] = m;
   }
 
   groupStandings = computeGroupStandings(groupMatches);
@@ -922,7 +949,10 @@ function parseData(data) {
       date: m.date ?? null,
       rawT1: m.team1 ?? null,
       rawT2: m.team2 ?? null,
-      score: m.score?.ft ?? null,
+      score: m.score?.ft ?? null,   // full-time [a,b] (null until played)
+      pens: m.score?.p ?? null,     // penalty shootout [a,b] when decided on pens
+      // winner slot (0 = team1, 1 = team2) respecting pens > extra time > full time
+      winnerSlot: koWinnerSlot(m.score),
       // resolved teams (null if dynamic W/L ref)
       team1: resolveStaticRef(m.team1, id, 1, thirdMap),
       team2: resolveStaticRef(m.team2, id, 2, thirdMap),
@@ -1049,7 +1079,7 @@ function simulateOnce() {
     if (!t1 || !t2) { results[id] = { winner: t1 ?? t2, loser: null }; continue; }
     let winner, loser;
     if (m.score) {
-      winner = m.score[0] >= m.score[1] ? t1 : t2;
+      winner = m.winnerSlot === 0 ? t1 : t2;
     } else {
       winner = Math.random() < winProb(t1, t2) ? t1 : t2;
     }
@@ -1128,7 +1158,7 @@ function _winnerDist(matchId) {
 
   if (m.score) {
     const [t1, t2] = getExpectedParticipants(matchId);
-    const w = m.score[0] >= m.score[1] ? t1 : t2;
+    const w = m.winnerSlot === 0 ? t1 : t2;
     return _wdCache[matchId] = w ? {[w]: 1} : {};
   }
 
@@ -1189,7 +1219,7 @@ function getExpectedWinner(id) {
   const [t1, t2] = getExpectedParticipants(id);
   if (!t1) return t2;
   if (!t2) return t1;
-  if (m.score) return m.score[0] >= m.score[1] ? t1 : t2;
+  if (m.score) return m.winnerSlot === 0 ? t1 : t2;
   const lk = lockedWinners[id];
   if (lk && (lk === t1 || lk === t2)) return lk; // only honour valid locks
   return winProb(t1, t2) >= 0.5 ? t1 : t2;
@@ -1227,7 +1257,7 @@ function buildMatchBox(id) {
   const eloP2 = 1 - eloP1;
 
   const isPlayed = !!m.score;
-  const actualWinner = isPlayed ? (m.score[0] >= m.score[1] ? t1 : t2) : null;
+  const actualWinner = isPlayed ? (m.winnerSlot === 0 ? t1 : t2) : null;
   const lockedWinner = lockedWinners[id] ?? null;
 
   const box = document.createElement('div');
@@ -1260,7 +1290,8 @@ function buildMatchBox(id) {
     const scoreEl = document.createElement('div');
     scoreEl.className = 'match-date';
     scoreEl.style.color = 'var(--gold)';
-    scoreEl.textContent = `${m.score[0]} – ${m.score[1]}`;
+    scoreEl.textContent = `${m.score[0]} – ${m.score[1]}`
+      + (m.pens ? ` (${t('pens')} ${m.pens[0]}–${m.pens[1]})` : '');
     box.appendChild(scoreEl);
   }
 
